@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Generic Slack Bot
-Based off Lachlan Archibald's excellent implementation from ogdevicebot.
-"""
+
 import logging
 import backoff
 from typing import Union
@@ -20,6 +17,8 @@ class SlackBot():
     """
     Generic Slackbot implementation that allows sending messages to users,
     channels, and other basic functionality.
+
+    Based off Lachlan Archibald's excellent implementation from ogdevicebot.
     """
 
     def __init__(self, token: str):
@@ -57,7 +56,7 @@ class SlackBot():
     def get_all_users(self):
         return self.client.users_list(limit=1000)["members"]
 
-    def send_message(self, message, recipient):
+    def send_message(self, recipient, message):
         """
         Send a message to a given Slack user or channel
         """
@@ -105,4 +104,3 @@ class SlackBot():
                     delete_message(message, conversation)
         except SlackApiError as api_error:
             logger.error(api_error)
-

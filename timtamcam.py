@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-timtamcam
-"""
+
 import os
 import sys
 import cv2
@@ -14,10 +12,11 @@ import imageio
 
 from slack.errors import SlackApiError
 
-import RPi.GPIO as GPIO
+import RPi.GPIO
 from hx711 import HX711
 
-from SlackBot import SlackBot
+from slackbot import SlackBot
+from network_scanner import find_ip_by_mac
 
 # Bot User OAuth Token (Install App Page)
 with open("bot_token.txt", "r") as token_file:
@@ -35,18 +34,21 @@ class TimTamCam(SlackBot):
     Watches the Tim Tams. Ever vigilant.
     """
 
-    def __init__(self, ip_address):
+    def __init__(self):
         self.setup_logging()
         logger.info("Tim Tam Bot starting!")
 
         super().__init__(bot_token)
 
-        # The script directory
-        script_dir = os.path.dirname(os.path.realpath(__file__))
+        # The script directory (where this file, config, etc, is stored)
+        self.script_dir = os.path.dirname(os.path.realpath(__file__))
+
+        # Get the IP address of the camera
+        self.load_camera_url()
 
         # Make sure we're in the bots channel
         logger.info("Joining the bots channel")
-        self.bot_channel = json.load(open(f"{script_dir}/bot_channel.json"))
+        self.bot_channel = json.load(open(f"{self.script_dir}/bot_channel.json"))
         self.join_channel_by_id(self.bot_channel["id"])
 
         logger.info("Setting up the scales")
@@ -55,6 +57,20 @@ class TimTamCam(SlackBot):
         # Watch (loop)
         self.monitor_weight()
 
+    def load_camera_url(self):
+        with open(f"{self.script_dir}/camera.json") as cam_file:
+            cam_details = json.load(cam_file)
+            network = cam_details["network"]
+            username = cam_details["username"]
+            password = cam_details["password"]
+            mac = cam_details["mac"]
+
+        camera_ip = find_ip_by_mac(network, mac)
+
+        logger.info(f"Found camera '{mac}' at '{camera_ip}'.")
+
+        # stream1 is 1080p, stream2 is 360p
+        self.stream_url = f"rtsp://{username}:{password}@{camera_ip}/stream1"
 
     def setup_scales(self):
         # GPIO port 5 = DATA and 6 = CLOCK
@@ -75,34 +91,32 @@ class TimTamCam(SlackBot):
         logger.addHandler(log_handler_stdout)
 
     def alert(self, num_timtams: float):
-        # Hardcode the IP address
-        ip = "192.168.252.134"
-        username = "opengear"
-        password = "default"
-
-        # stream1 is 1080p, stream2 is 360p
-        stream_url = f"rtsp://{username}:{password}@{ip}/stream1"
-
         try:
-            self.record_gif(stream_url, 5)
+            self.record_gif(5)
         except Exception as e:
             logger.error("Failed to take photo!")
             logger.error(e)
-            return
+
+            # Try to recover the camera
+            self.load_camera_url()
+            try:
+                self.record_gif(5)
+                logger.info("Successfully recovered from bad camera!")
+            except Exception:
+                self.send_message(self.bot_channel, "Timtams tampering detected! But the camera is disconnected...")
+                return
 
         try:
             self.send_file(self.bot_channel, "/tmp/timtam-thief.gif", f"Timtam tampering detected! Someone took {int(num_timtams)} Tim Tams!")
-
-            # self.send_message("Timtams tampering detected!", self.bot_channel)
         except SlackApiError as api_error:
             logger.error(api_error)
         except requests.exceptions.RequestException as e:
             raise SystemExit(e)
 
 
-    def record_gif(self, ip, num_frames):
+    def record_gif(self, num_frames):
         logger.info("Recording a gif of the thief")
-        cap = cv2.VideoCapture(ip)
+        cap = cv2.VideoCapture(self.stream_url)
         stream_fps = int(cap.get(cv2.CAP_PROP_FPS))
         # stream_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         # stream_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -143,13 +157,15 @@ class TimTamCam(SlackBot):
         timtam_weight = 18.3
         museli_bar = 32
 
+        item = timtam_weight
+
         previous = None
 
         while True:
             try:
                 weight = self.hx.get_weight(5)
                 if previous is not None:
-                    timtam_change = round((previous - weight) / timtam_weight, 0)
+                    timtam_change = round((previous - weight) / item, 0)
                     if timtam_change > 0.8:
                         # Someone has taken 80% or more of a timtam. Close enough!
                         self.alert(timtam_change)
@@ -163,7 +179,7 @@ class TimTamCam(SlackBot):
 
             except (KeyboardInterrupt, SystemExit) as e:
                 logger.error(str(e))
-                GPIO.cleanup()
+                RPi.GPIO.cleanup()
                 return
 
 
@@ -173,17 +189,14 @@ if __name__ == "__main__":
         description="Watches the Tim Tams. Ever vigilant.",
     )
 
-    # TODO - DYNAMICALLY FIND THE IP ADDRESS OF THE CAMERA
-
-    parser.add_argument("--ip", "-i", type=str, required=True,
-        help="The IP address of the camera.")
+    # parser.add_argument("--mac", "-m", type=str, required=True,
+    #     help="The MAC address of the camera.")
     parser.add_argument("--debug", "-x", action='store_true',
         help="Enable debugging,")
 
     # sys.argv[1:]
     args = parser.parse_args()
 
-    bot = TimTamCam(args.ip)
+    bot = TimTamCam()
 
     exit(0)
-

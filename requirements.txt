@@ -1,0 +1,6 @@
+slackclient
+requests
+imageio
+opencv-python
+scapy
+backoff
