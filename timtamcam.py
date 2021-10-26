@@ -67,6 +67,9 @@ class TimTamCam(SlackBot):
 
         camera_ip = find_ip_by_mac(network, mac)
 
+        if not camera_ip:
+            raise RuntimeError("Could not find camera URL")
+
         logger.info(f"Found camera '{mac}' at '{camera_ip}'.")
 
         # stream1 is 1080p, stream2 is 360p
@@ -98,8 +101,8 @@ class TimTamCam(SlackBot):
             logger.error(e)
 
             # Try to recover the camera
-            self.load_camera_url()
             try:
+                self.load_camera_url()
                 self.record_gif(5)
                 logger.info("Successfully recovered from bad camera!")
             except Exception:

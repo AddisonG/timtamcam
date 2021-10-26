@@ -56,7 +56,7 @@ class SlackBot():
     def get_all_users(self):
         return self.client.users_list(limit=1000)["members"]
 
-    def send_message(self, recipient, message):
+    def send_message(self, recipient: Union[str, dict], message: str):
         """
         Send a message to a given Slack user or channel
         """
@@ -64,8 +64,12 @@ class SlackBot():
             logger.error("Recipient data not provided")
             return
 
-        r_name = recipient['name']
-        r_id = recipient['id']
+        if recipient is dict:
+            r_name = recipient['name']
+            r_id = recipient['id']
+        else:
+            r_name = "???"
+            r_id = recipient
 
         logger.info(f"Sending message to '{r_name}' ({r_id}): \"{message}\"")
         response = self.client.chat_postMessage(channel=r_id, text=message)
