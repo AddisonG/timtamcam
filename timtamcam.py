@@ -23,7 +23,7 @@ with open("bot_token.txt", "r") as token_file:
     bot_token = token_file.readline().strip()
 
 
-LOGFILE_FORMAT = '%(asctime)-15s %(module)s %(levelname)s %(message)s'
+LOGFILE_FORMAT = '%(asctime)-15s %(module)s %(levelname)s: %(message)s'
 STDOUT_FORMAT  = '%(asctime)s [%(levelname)s] - %(message)s'
 
 logger = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ class TimTamCam(SlackBot):
 
     def alert(self, num_timtams: float):
         try:
-            self.record_gif(5)
+            self.record_gif(10)
         except Exception as e:
             logger.error("Failed to take photo!")
             logger.error(e)
@@ -103,7 +103,7 @@ class TimTamCam(SlackBot):
             # Try to recover the camera
             try:
                 self.load_camera_url()
-                self.record_gif(5)
+                self.record_gif(10)
                 logger.info("Successfully recovered from bad camera!")
             except Exception:
                 self.send_message(self.bot_channel, "Timtams tampering detected! But the camera is disconnected...")
@@ -124,6 +124,8 @@ class TimTamCam(SlackBot):
         # stream_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         # stream_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
+        # TODO - use duration and FPS instead of "num_frames"
+
         frames = 0
         images = []
         # Record several frames
@@ -131,8 +133,8 @@ class TimTamCam(SlackBot):
             ret, frame = cap.read()
             frames += 1
 
-            # Record at 1 FPS
-            if (frames % stream_fps) == 0:
+            # Record at 2 FPS
+            if (frames % (stream_fps // 2)) == 0:
                 self.camera_check(cap, ret, frame)
 
                 # Save a single image
@@ -169,8 +171,8 @@ class TimTamCam(SlackBot):
                 weight = self.hx.get_weight(5)
                 if previous is not None:
                     timtam_change = round((previous - weight) / item, 0)
-                    if timtam_change > 0.8:
-                        # Someone has taken 80% or more of a timtam. Close enough!
+                    if timtam_change > 0.9:
+                        # Someone has taken 90% or more of a timtam. Close enough!
                         self.alert(timtam_change)
 
                 # No idea why we do this
@@ -178,7 +180,7 @@ class TimTamCam(SlackBot):
                 self.hx.power_up()
 
                 previous = weight
-                time.sleep(0.1)
+                time.sleep(0.2)
 
             except (KeyboardInterrupt, SystemExit) as e:
                 logger.error(str(e))

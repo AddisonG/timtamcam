@@ -8,7 +8,7 @@ from slack import WebClient
 from slack.errors import SlackApiError
 
 
-LOGFILE_FORMAT = '%(asctime)-15s %(module)s %(levelname)s %(message)s'
+LOGFILE_FORMAT = '%(asctime)-15s %(module)s %(levelname)s: %(message)s'
 logger = logging.getLogger(__name__)
 logging.basicConfig(filename='timtamcam.log', level=logging.INFO, format=LOGFILE_FORMAT)
 
@@ -64,7 +64,7 @@ class SlackBot():
             logger.error("Recipient data not provided")
             return
 
-        if recipient is dict:
+        if type(recipient) is dict:
             r_name = recipient['name']
             r_id = recipient['id']
         else:
