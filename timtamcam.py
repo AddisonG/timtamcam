@@ -79,7 +79,7 @@ class TimTamCam(SlackBot):
         # GPIO port 5 = DATA and 6 = CLOCK
         self.hx = HX711(5, 6)
         self.hx.set_reading_format("MSB", "MSB")
-        self.hx.set_reference_unit(464)
+        self.hx.set_reference_unit(446)
         self.hx.reset()
         self.hx.tare()
 
@@ -168,7 +168,7 @@ class TimTamCam(SlackBot):
 
         while True:
             try:
-                weight = self.hx.get_weight(5)
+                weight = self.hx.get_weight(10)
                 if previous is not None:
                     timtam_change = round((previous - weight) / item, 0)
                     if timtam_change > 0.9:
@@ -180,7 +180,7 @@ class TimTamCam(SlackBot):
                 self.hx.power_up()
 
                 previous = weight
-                time.sleep(0.2)
+                time.sleep(0.1)
 
             except (KeyboardInterrupt, SystemExit) as e:
                 logger.error(str(e))
