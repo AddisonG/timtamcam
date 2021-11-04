@@ -58,6 +58,7 @@ class TimTamCam(SlackBot):
         self.monitor_weight()
 
     def load_camera_url(self):
+        logger.info("Attempting to find camera IP by MAC address")
         with open(f"{self.script_dir}/camera.json") as cam_file:
             cam_details = json.load(cam_file)
             network = cam_details["network"]
@@ -110,7 +111,7 @@ class TimTamCam(SlackBot):
                 return
 
         try:
-            self.send_file(self.bot_channel, "/tmp/timtam-thief.gif", f"Timtam tampering detected! Someone took {int(num_timtams)} Tim Tams!")
+            self.send_file(self.bot_channel, "/tmp/timtam-thief.gif", f"Timtam tampering detected! Someone took {round(num_timtams, 0)} Tim Tams!")
         except SlackApiError as api_error:
             logger.error(api_error)
         except requests.exceptions.RequestException as e:
@@ -165,19 +166,16 @@ class TimTamCam(SlackBot):
         item = timtam_weight
 
         previous = None
-
         while True:
             try:
                 weight = self.hx.get_weight(10)
                 if previous is not None:
-                    timtam_change = round((previous - weight) / item, 0)
+                    timtam_change = round((previous - weight) / item, 1)
                     if timtam_change > 0.9:
                         # Someone has taken 90% or more of a timtam. Close enough!
                         self.alert(timtam_change)
-
-                # No idea why we do this
-                self.hx.power_down()
-                self.hx.power_up()
+                        previous = None
+                        continue
 
                 previous = weight
                 time.sleep(0.1)
