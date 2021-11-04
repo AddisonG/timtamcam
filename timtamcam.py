@@ -96,7 +96,7 @@ class TimTamCam(SlackBot):
 
     def alert(self, num_timtams: float):
         try:
-            self.record_gif(10)
+            self.record_gif(5, 2)
         except Exception as e:
             logger.error("Failed to take photo!")
             logger.error(e)
@@ -104,7 +104,7 @@ class TimTamCam(SlackBot):
             # Try to recover the camera
             try:
                 self.load_camera_url()
-                self.record_gif(10)
+                self.record_gif(5, 2)
                 logger.info("Successfully recovered from bad camera!")
             except Exception:
                 self.send_message(self.bot_channel, "Timtams tampering detected! But the camera is disconnected...")
@@ -118,24 +118,21 @@ class TimTamCam(SlackBot):
             raise SystemExit(e)
 
 
-    def record_gif(self, num_frames):
+    def record_gif(self, duration, fps):
         logger.info("Recording a gif of the thief")
         cap = cv2.VideoCapture(self.stream_url)
         stream_fps = int(cap.get(cv2.CAP_PROP_FPS))
         # stream_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         # stream_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
-        # TODO - use duration and FPS instead of "num_frames"
-
         frames = 0
         images = []
         # Record several frames
-        while cap.isOpened() and len(images) < num_frames:
+        while cap.isOpened() and len(images) < (duration * fps):
             ret, frame = cap.read()
             frames += 1
 
-            # Record at 2 FPS
-            if (frames % (stream_fps // 2)) == 0:
+            if (frames % (stream_fps // fps)) == 0:
                 self.camera_check(cap, ret, frame)
 
                 # Save a single image
@@ -155,7 +152,8 @@ class TimTamCam(SlackBot):
     def camera_check(self, cap, ret, frame):
         if not cap.isOpened() or not ret or frame is None or frame.size == 0:
             cap.release()
-            raise SystemExit("Camera is unreachable, or had other error.")
+            logger.error("Critical camera error")
+            raise RuntimeError("Camera is unreachable, or had other error.")
 
 
     def monitor_weight(self):
@@ -168,17 +166,16 @@ class TimTamCam(SlackBot):
         previous = None
         while True:
             try:
-                weight = self.hx.get_weight(10)
+                weight = self.hx.get_weight(15)
                 if previous is not None:
                     timtam_change = round((previous - weight) / item, 1)
-                    if timtam_change > 0.9:
-                        # Someone has taken 90% or more of a timtam. Close enough!
+                    if timtam_change > 0.8:
+                        # Someone has taken 80% or more of a timtam. Close enough!
                         self.alert(timtam_change)
                         previous = None
                         continue
 
                 previous = weight
-                time.sleep(0.1)
 
             except (KeyboardInterrupt, SystemExit) as e:
                 logger.error(str(e))
