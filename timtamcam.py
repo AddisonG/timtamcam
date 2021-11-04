@@ -54,6 +54,10 @@ class TimTamCam(SlackBot):
         logger.info("Setting up the scales")
         self.setup_scales()
 
+        # The mask is SUBTRACTED, then the border is then ADDED
+        self.mask = cv2.imread(f"{self.script_dir}/halloween-mask.png", cv2.IMREAD_COLOR)
+        self.border = cv2.imread(f"{self.script_dir}/halloween-border.png", cv2.IMREAD_COLOR)
+
         # Watch (loop)
         self.monitor_weight()
 
@@ -137,6 +141,10 @@ class TimTamCam(SlackBot):
 
                 # Save a single image
                 # cv2.imwrite("/tmp/timtam-thief.jpg", frame)
+
+                # Add halloween overlay
+                frame = cv2.subtract(frame, self.mask)
+                frame = cv2.addWeighted(frame, 1, self.border, 1, 0)
 
                 # Convert to RGB for gifs
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
