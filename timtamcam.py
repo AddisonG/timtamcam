@@ -29,6 +29,7 @@ STDOUT_FORMAT  = '%(asctime)s [%(levelname)s] - %(message)s'
 logger = logging.getLogger(__name__)
 logging.basicConfig(filename='timtamcam.log', level=logging.INFO, format=LOGFILE_FORMAT)
 
+
 class TimTamCam(SlackBot):
     """
     Watches the Tim Tams. Ever vigilant.
@@ -50,9 +51,6 @@ class TimTamCam(SlackBot):
         logger.info("Joining the bots channel")
         self.bot_channel = json.load(open(f"{self.script_dir}/bot_channel.json"))
         self.join_channel_by_id(self.bot_channel["id"])
-
-        logger.info("Setting up the scales")
-        self.setup_scales()
 
         self.mask = None
         # The mask is SUBTRACTED, then the border is then ADDED
@@ -173,6 +171,7 @@ class TimTamCam(SlackBot):
         while True:
             try:
                 weight = self.hx.get_weight(15)
+                logger.debug(f"Weight: {weight}")
                 if previous is not None:
                     timtam_change = round((previous - weight) / item, 1)
                     if timtam_change > 0.8:
@@ -187,6 +186,14 @@ class TimTamCam(SlackBot):
                 logger.error(str(e))
                 RPi.GPIO.cleanup()
                 return
+
+    # This function is run as part of the daemon
+    def run(self):
+        logger.info("Setting up the scales")
+        self.setup_scales()
+
+        # Watch (loop)
+        self.monitor_weight()
 
 
 if __name__ == "__main__":
@@ -204,5 +211,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     bot = TimTamCam()
+    bot.run()
 
     exit(0)

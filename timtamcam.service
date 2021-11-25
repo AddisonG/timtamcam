@@ -1,0 +1,14 @@
+# Place in /etc/systemd/system
+# Install with `systemctl enable timtamcam.service`
+
+[Unit]
+Description=Tim Tam Cam
+
+[Service]
+WorkingDirectory=/home/pi/tim-tam-cam/
+ExecStart=/usr/bin/env python3 /home/pi/tim-tam-cam/timtamcam.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
