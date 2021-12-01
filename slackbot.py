@@ -24,7 +24,8 @@ class SlackBot():
     def __init__(self, token: str):
         if not token or not token.startswith("xoxb"):
             raise RuntimeError("Valid bot token needed - must start with 'xoxb'")
-        self.client = WebClient(token=token)
+        # Uploading a file can take between 20 and 35 seconds.
+        self.client = WebClient(token=token, timeout=60)
         if not self.client:
             raise RuntimeError("Slack web client could not start")
 
