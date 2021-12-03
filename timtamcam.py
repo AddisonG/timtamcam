@@ -27,16 +27,17 @@ LOGFILE_FORMAT = '%(asctime)-15s %(module)s %(levelname)s: %(message)s'
 STDOUT_FORMAT  = '%(asctime)s [%(levelname)s] - %(message)s'
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='timtamcam.log', level=logging.INFO, format=LOGFILE_FORMAT)
-
 
 class TimTamCam(SlackBot):
     """
     Watches the Tim Tams. Ever vigilant.
     """
 
-    def __init__(self):
-        self.setup_logging()
+    def __init__(self, debug=False):
+        if debug:
+            self.setup_logging(logging.DEBUG)
+        else:
+            self.setup_logging(logging.INFO)
         logger.info("Tim Tam Bot starting!")
 
         super().__init__(bot_token)
@@ -84,14 +85,16 @@ class TimTamCam(SlackBot):
         self.hx.reset()
         self.hx.tare()
 
-    def setup_logging(self):
+    def setup_logging(self, level=logging.INFO):
         # Log to a file
-        logger.setLevel(logging.INFO)
+        logging.basicConfig(filename='timtamcam.log', format=LOGFILE_FORMAT)
+        logger.setLevel(level)
 
         # Log to stdout
         formatter = logging.Formatter(fmt=STDOUT_FORMAT)
         log_handler_stdout = logging.StreamHandler(sys.stdout)
         log_handler_stdout.setFormatter(formatter)
+        log_handler_stdout.setLevel(level)
         logger.addHandler(log_handler_stdout)
 
     def alert(self, num_timtams: float):
@@ -210,7 +213,7 @@ if __name__ == "__main__":
     # sys.argv[1:]
     args = parser.parse_args()
 
-    bot = TimTamCam()
+    bot = TimTamCam(debug=args.debug)
     bot.run()
 
     exit(0)
