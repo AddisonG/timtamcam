@@ -54,8 +54,8 @@ class TimTamCam(SlackBot):
 
         self.mask = None
         # The mask is SUBTRACTED, then the border is then ADDED
-        # self.mask = cv2.imread(f"{self.script_dir}/halloween-mask.png", cv2.IMREAD_COLOR)
-        # self.border = cv2.imread(f"{self.script_dir}/halloween-border.png", cv2.IMREAD_COLOR)
+        self.mask = cv2.imread(f"{self.script_dir}/christmas-mask.png", cv2.IMREAD_COLOR)
+        self.border = cv2.imread(f"{self.script_dir}/christmas-border.png", cv2.IMREAD_COLOR)
 
     def load_camera_url(self):
         logger.info("Attempting to find camera IP by MAC address")
