@@ -2,6 +2,7 @@
 
 from scapy.all import arping
 
+
 def scan(ip_range: str):
     try:
         responses, _ = arping(ip_range, verbose=False)
@@ -21,7 +22,8 @@ def scan(ip_range: str):
 
     return devices
 
-def find_ip_by_mac(ip_range: str, mac: str):
+
+def find_ip_by_mac(ip_range: str, mac: str) -> str:
     for device in scan(ip_range):
         if device["mac"].upper() == mac.upper():
             return device["ip"]

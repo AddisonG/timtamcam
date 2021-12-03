@@ -138,7 +138,7 @@ class TimTamCam(SlackBot):
                 # Save a single image
                 # cv2.imwrite("/tmp/timtam-thief.jpg", frame)
 
-                if self.mask:
+                if self.mask is not None:
                     # Add overlay
                     frame = cv2.subtract(frame, self.mask)
                     frame = cv2.addWeighted(frame, 1, self.border, 1, 0)
