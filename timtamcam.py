@@ -26,6 +26,9 @@ with open("bot_token.txt", "r") as token_file:
 LOGFILE_FORMAT = '%(asctime)-15s %(module)s %(levelname)s: %(message)s'
 STDOUT_FORMAT  = '%(asctime)s [%(levelname)s] - %(message)s'
 
+# in grams
+DELTA_WEIGHT = 5
+
 logger = logging.getLogger(__name__)
 
 class TimTamCam(SlackBot):
@@ -55,8 +58,8 @@ class TimTamCam(SlackBot):
 
         self.mask = None
         # The mask is SUBTRACTED, then the border is then ADDED
-        self.mask = cv2.imread(f"{self.script_dir}/christmas-mask.png", cv2.IMREAD_COLOR)
-        self.border = cv2.imread(f"{self.script_dir}/christmas-border.png", cv2.IMREAD_COLOR)
+        #self.mask = cv2.imread(f"{self.script_dir}/christmas-mask.png", cv2.IMREAD_COLOR)
+        #self.border = cv2.imread(f"{self.script_dir}/christmas-border.png", cv2.IMREAD_COLOR)
 
     def load_camera_url(self):
         logger.info("Attempting to find camera IP by MAC address")
@@ -97,24 +100,29 @@ class TimTamCam(SlackBot):
         log_handler_stdout.setLevel(level)
         logger.addHandler(log_handler_stdout)
 
-    def alert(self, num_timtams: float):
+    def alert(self, num_timtams: float, previous_weight: float):
         try:
-            self.record_gif(5, 2)
+            self.record_gif(4, 2)
         except Exception as e:
-            logger.error("Failed to take photo!")
+            logger.error("Failed to record a gif!")
             logger.error(e)
 
             # Try to recover the camera
             try:
                 self.load_camera_url()
-                self.record_gif(5, 2)
+                self.record_gif(4, 2)
                 logger.info("Successfully recovered from bad camera!")
             except Exception:
                 self.send_message(self.bot_channel, "Timtams tampering detected! But the camera is disconnected...")
                 return
 
+        if previous_weight <= self.hx.get_weight(15) + DELTA_WEIGHT:
+            logger.info("Weight has not changed, after recording video. Will NOT post to Slack.")
+            return
+
         try:
-            self.send_file(self.bot_channel, "/tmp/timtam-thief.gif", f"Timtam tampering detected! Someone took {round(num_timtams, 0)} Tim Tams!")
+            logger.debug("Uploading file to Slack")
+            self.send_file(self.bot_channel, "/tmp/timtam-thief.gif", f"Timtam tampering detected! Someone took {int(round(num_timtams, 0))} Tim Tams!")
         except SlackApiError as api_error:
             logger.error(api_error)
         except requests.exceptions.RequestException as e:
@@ -179,7 +187,7 @@ class TimTamCam(SlackBot):
                     timtam_change = round((previous - weight) / item, 1)
                     if timtam_change > 0.8:
                         # Someone has taken 80% or more of a timtam. Close enough!
-                        self.alert(timtam_change)
+                        self.alert(timtam_change, previous)
                         previous = None
                         continue
 

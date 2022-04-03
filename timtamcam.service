@@ -6,9 +6,11 @@ Description=Tim Tam Cam
 
 [Service]
 WorkingDirectory=/home/pi/tim-tam-cam/
-ExecStart=/usr/bin/env python3 /home/pi/tim-tam-cam/timtamcam.py
+ExecStart=/usr/bin/sudo /usr/bin/env python3 /home/pi/tim-tam-cam/timtamcam.py
 Restart=always
 RestartSec=10
+User=pi
+Group=pi
 
 [Install]
 WantedBy=multi-user.target
