@@ -4,11 +4,11 @@ import os
 import sys
 import cv2
 import json
-import time
 import logging
 import requests
 import argparse
 import imageio
+from datetime import datetime
 
 from slack.errors import SlackApiError
 
@@ -29,7 +29,6 @@ STDOUT_FORMAT  = '%(asctime)s [%(levelname)s] - %(message)s'
 # in grams
 DELTA_WEIGHT = 5
 
-logger = logging.getLogger(__name__)
 
 class TimTamCam(SlackBot):
     """
@@ -37,13 +36,14 @@ class TimTamCam(SlackBot):
     """
 
     def __init__(self, debug=False):
+        self.logger = logging.getLogger(__name__)
         if debug:
             self.setup_logging(logging.DEBUG)
         else:
             self.setup_logging(logging.INFO)
-        logger.info("Tim Tam Bot starting!")
+        self.logger.info("Tim Tam Bot starting!")
 
-        super().__init__(bot_token)
+        super().__init__(name="tim-tam-cam", token=bot_token)
 
         # The script directory (where this file, config, etc, is stored)
         self.script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -52,17 +52,24 @@ class TimTamCam(SlackBot):
         self.load_camera_url()
 
         # Make sure we're in the bots channel
-        logger.info("Joining the bots channel")
+        self.logger.info("Joining the bots channel")
         self.bot_channel = json.load(open(f"{self.script_dir}/bot_channel.json"))
         self.join_channel_by_id(self.bot_channel["id"])
 
         self.mask = None
+        self.border = None
+
         # The mask is SUBTRACTED, then the border is then ADDED
-        #self.mask = cv2.imread(f"{self.script_dir}/christmas-mask.png", cv2.IMREAD_COLOR)
-        #self.border = cv2.imread(f"{self.script_dir}/christmas-border.png", cv2.IMREAD_COLOR)
+        if datetime.now().month == 12:
+            self.mask = cv2.imread(f"{self.script_dir}/christmas-mask.png", cv2.IMREAD_COLOR)
+            self.border = cv2.imread(f"{self.script_dir}/christmas-border.png", cv2.IMREAD_COLOR)
+        elif datetime.now().month == 10:
+            self.mask = cv2.imread(f"{self.script_dir}/halloween-mask.png", cv2.IMREAD_COLOR)
+            self.border = cv2.imread(f"{self.script_dir}/halloween-border.png", cv2.IMREAD_COLOR)
+
 
     def load_camera_url(self):
-        logger.info("Attempting to find camera IP by MAC address")
+        self.logger.info("Attempting to find camera IP by MAC address")
         with open(f"{self.script_dir}/camera.json") as cam_file:
             cam_details = json.load(cam_file)
             network = cam_details["network"]
@@ -70,15 +77,17 @@ class TimTamCam(SlackBot):
             password = cam_details["password"]
             mac = cam_details["mac"]
 
+        # camera_ip = "192.168.252.22"
         camera_ip = find_ip_by_mac(network, mac)
 
         if not camera_ip:
-            raise RuntimeError("Could not find camera URL")
+            raise RuntimeError(f"Could not find camera ({mac}) on {network}.")
 
-        logger.info(f"Found camera '{mac}' at '{camera_ip}'.")
+        self.logger.info(f"Found camera '{mac}' at '{camera_ip}'.")
 
         # stream1 is 1080p, stream2 is 360p
         self.stream_url = f"rtsp://{username}:{password}@{camera_ip}/stream1"
+
 
     def setup_scales(self):
         # GPIO port 5 = DATA and 6 = CLOCK
@@ -88,53 +97,57 @@ class TimTamCam(SlackBot):
         self.hx.reset()
         self.hx.tare()
 
+
     def setup_logging(self, level=logging.INFO):
         # Log to a file
         logging.basicConfig(filename='timtamcam.log', format=LOGFILE_FORMAT)
-        logger.setLevel(level)
+        self.logger.setLevel(level)
 
         # Log to stdout
         formatter = logging.Formatter(fmt=STDOUT_FORMAT)
         log_handler_stdout = logging.StreamHandler(sys.stdout)
         log_handler_stdout.setFormatter(formatter)
         log_handler_stdout.setLevel(level)
-        logger.addHandler(log_handler_stdout)
+        self.logger.addHandler(log_handler_stdout)
+
 
     def alert(self, num_timtams: float, previous_weight: float):
         try:
-            self.record_gif(4, 2)
+            self.record_gif(4, 3)
         except Exception as e:
-            logger.error("Failed to record a gif!")
-            logger.error(e)
+            self.logger.error("Failed to record a gif!")
+            self.logger.error(e)
 
             # Try to recover the camera
             try:
                 self.load_camera_url()
-                self.record_gif(4, 2)
-                logger.info("Successfully recovered from bad camera!")
+                self.record_gif(4, 3)
+                self.logger.info("Successfully recovered from bad camera!")
             except Exception:
                 self.send_message(self.bot_channel, "Timtams tampering detected! But the camera is disconnected...")
                 return
 
         if previous_weight <= self.hx.get_weight(15) + DELTA_WEIGHT:
-            logger.info("Weight has not changed, after recording video. Will NOT post to Slack.")
+            self.logger.info("Weight has not changed, after recording video. Will NOT post to Slack.")
             return
 
         try:
-            logger.debug("Uploading file to Slack")
-            self.send_file(self.bot_channel, "/tmp/timtam-thief.gif", f"Timtam tampering detected! Someone took {int(round(num_timtams, 0))} Tim Tams!")
+            self.logger.debug("Uploading file to Slack")
+            self.send_file(self.bot_channel, "/tmp/timtam-thief.gif",
+                f"Timtam tampering detected! Someone took {round(num_timtams)} Tim Tams!")
         except SlackApiError as api_error:
-            logger.error(api_error)
+            self.logger.error(api_error)
         except requests.exceptions.RequestException as e:
             raise SystemExit(e)
 
 
     def record_gif(self, duration, fps):
-        logger.info("Recording a gif of the thief")
+        self.logger.info("Recording a gif of the thief")
         cap = cv2.VideoCapture(self.stream_url)
         stream_fps = int(cap.get(cv2.CAP_PROP_FPS))
         # stream_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         # stream_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.logger.debug("Connected to stream URL")
 
         frames = 0
         images = []
@@ -159,21 +172,22 @@ class TimTamCam(SlackBot):
                 images.append(rgb_frame)
 
         # Write frames to gif
-        logger.debug("Saving timtam thief image.")
+        self.logger.debug("Saving timtam thief image.")
         imageio.mimsave('/tmp/timtam-thief.gif', images, duration=0.3)
-        logger.info("Saved gif")
+        self.logger.info("Saved gif")
 
         cap.release()
+
 
     def camera_check(self, cap, ret, frame):
         if not cap.isOpened() or not ret or frame is None or frame.size == 0:
             cap.release()
-            logger.error("Critical camera error")
+            self.logger.error("Critical camera error")
             raise RuntimeError("Camera is unreachable, or had other error.")
 
 
-    def monitor_weight(self):
-        logger.info("Now monitoring Tim Tams")
+    def monitor_loop(self):
+        self.logger.info("Now monitoring Tim Tams")
         timtam_weight = 18.3
 
         item = timtam_weight
@@ -182,11 +196,16 @@ class TimTamCam(SlackBot):
         while True:
             try:
                 weight = self.hx.get_weight(15)
-                logger.debug(f"Weight: {weight}")
+                self.logger.debug(f"Weight: {round(weight, 1)}g")
                 if previous is not None:
-                    timtam_change = round((previous - weight) / item, 1)
-                    if timtam_change > 0.8:
-                        # Someone has taken 80% or more of a timtam. Close enough!
+                    hour = datetime.now().hour
+                    if hour >= 19 or hour <= 4:
+                        # Don't record thefts after 7:59pm, or before 4:59am
+                        continue
+
+                    timtam_change = round((previous - weight) / item, 2)
+                    if timtam_change >= 0.85:
+                        # Someone has taken 85% or more of a timtam. Close enough!
                         self.alert(timtam_change, previous)
                         previous = None
                         continue
@@ -194,17 +213,17 @@ class TimTamCam(SlackBot):
                 previous = weight
 
             except (KeyboardInterrupt, SystemExit) as e:
-                logger.error(str(e))
+                self.logger.error(str(e))
                 RPi.GPIO.cleanup()
                 return
 
+
     # This function is run as part of the daemon
     def run(self):
-        logger.info("Setting up the scales")
+        self.logger.info("Setting up the scales")
         self.setup_scales()
 
-        # Watch (loop)
-        self.monitor_weight()
+        self.monitor_loop()
 
 
 if __name__ == "__main__":
@@ -215,8 +234,7 @@ if __name__ == "__main__":
 
     # parser.add_argument("--mac", "-m", type=str, required=True,
     #     help="The MAC address of the camera.")
-    parser.add_argument("--debug", "-x", action='store_true',
-        help="Enable debugging,")
+    parser.add_argument("--debug", "-x", action='store_true', help="Enable debugging.")
 
     # sys.argv[1:]
     args = parser.parse_args()

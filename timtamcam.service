@@ -8,7 +8,7 @@ Description=Tim Tam Cam
 WorkingDirectory=/home/pi/tim-tam-cam/
 ExecStart=/usr/bin/sudo /usr/bin/env python3 /home/pi/tim-tam-cam/timtamcam.py
 Restart=always
-RestartSec=10
+RestartSec=300
 User=pi
 Group=pi
 
