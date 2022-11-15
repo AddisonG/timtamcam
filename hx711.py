@@ -112,7 +112,7 @@ class HX711:
 
         # Wait until HX711 is ready for us to read a sample.
         while not self.is_ready():
-            pass
+            time.sleep(0.01)
 
         # Read three bytes of data from the HX711.
         firstByte  = self.readNextByte()
