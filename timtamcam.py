@@ -204,8 +204,11 @@ class TimTamCam(SlackBot):
                 self.logger.debug(f"Weight: {round(weight, 1)}g")
                 if previous is not None:
                     hour = datetime.now().hour
-                    if hour >= 19 or hour <= 4:
+                    weekday = datetime.now().weekday()
+                    if hour >= 19 or hour <= 4 or weekday > 5:
                         # Don't record thefts after 7:59pm, or before 4:59am
+                        # Don't record thefts on Saturday/Sunday
+                        previous = None
                         continue
 
                     timtam_change = round((previous - weight) / item, 2)
