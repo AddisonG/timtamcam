@@ -9,6 +9,7 @@ import requests
 import argparse
 import imageio
 from datetime import datetime
+from pygifsicle import optimize
 
 from slack.errors import SlackApiError
 
@@ -27,7 +28,8 @@ LOGFILE_FORMAT = '%(asctime)-15s %(module)s %(levelname)s: %(message)s'
 STDOUT_FORMAT  = '%(asctime)s [%(levelname)s] - %(message)s'
 
 # in grams
-DELTA_WEIGHT = 5
+DELTA_WEIGHT = 10
+TIMTAM_WEIGHT = 18.3
 
 
 class TimTamCam(SlackBot):
@@ -55,6 +57,9 @@ class TimTamCam(SlackBot):
         self.logger.info("Joining the bots channel")
         self.bot_channel = json.load(open(f"{self.script_dir}/bot_channel.json"))
         self.join_channel_by_id(self.bot_channel["id"])
+
+        # Send a test message to Addison, to make sure everything works
+        self.send_message(self.bot_channel, "tim-tam-bot coming online!", ephemeral=True)
 
         self.mask = None
         self.border = None
@@ -132,7 +137,7 @@ class TimTamCam(SlackBot):
             return
 
         try:
-            self.logger.debug("Uploading file to Slack")
+            self.logger.info("Uploading file to Slack")
             self.send_file(self.bot_channel, "/tmp/timtam-thief.gif",
                 f"Timtam tampering detected! Someone took {round(num_timtams)} Tim Tams!")
         except SlackApiError as api_error:
@@ -173,8 +178,10 @@ class TimTamCam(SlackBot):
 
         # Write frames to gif
         self.logger.debug("Saving timtam thief image.")
-        imageio.mimsave('/tmp/timtam-thief.gif', images, duration=0.3)
+        imageio.mimsave('/tmp/timtam-thief.gif', images, duration=0.2)
         self.logger.info("Saved gif")
+        optimize('/tmp/timtam-thief.gif')
+        self.logger.info("Optimised gif")
 
         cap.release()
 
@@ -188,9 +195,7 @@ class TimTamCam(SlackBot):
 
     def monitor_loop(self):
         self.logger.info("Now monitoring Tim Tams")
-        timtam_weight = 18.3
-
-        item = timtam_weight
+        item = TIMTAM_WEIGHT
 
         previous = None
         while True:

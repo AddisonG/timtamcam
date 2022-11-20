@@ -23,8 +23,8 @@ class SlackBot():
             logging.basicConfig(filename=f"{name}.log", level=logging.INFO, format=LOGFILE_FORMAT)
         if not token or not token.startswith("xoxb"):
             raise RuntimeError("Valid bot token needed - must start with 'xoxb'")
-        # Uploading a file can take between 20 and 35 seconds.
-        self.client = WebClient(token=token, timeout=60)
+        # Uploading a file can take between 20 and 60 seconds.
+        self.client = WebClient(token=token, timeout=120)
         if not self.client:
             raise RuntimeError("Slack web client could not start")
 
@@ -34,14 +34,20 @@ class SlackBot():
         if type(channels) is dict:
             channels = channels.get("id")
 
-        self.client.files_upload(
-            channels=channels,
-            file=file_location,
-            initial_comment=message,
-            title=title,
-            # filetype="png",
-            # filename="file name when downloaded",
-        )
+        try:
+            self.logger.debug("Started file upload")
+            self.client.files_upload(
+                channels=channels,
+                file=file_location,
+                initial_comment=message,
+                title=title,
+                # filetype="png",
+                # filename="file name when downloaded",
+            )
+        except Exception as e:
+            self.logger.error(e.response.get("error"))
+            raise
+
 
     def join_channel_by_id(self, channel_id: str):
         self.client.conversations_join(channel=channel_id)
@@ -56,7 +62,7 @@ class SlackBot():
     def get_all_users(self):
         return self.client.users_list(limit=1000)["members"]
 
-    def send_message(self, recipient: Union[str, dict], message: str):
+    def send_message(self, recipient: Union[str, dict], message: str, ephemeral: bool = False):
         """
         Send a message to a given Slack user or channel
         """
@@ -71,8 +77,12 @@ class SlackBot():
             r_name = "???"
             r_id = recipient
 
-        self.logger.info(f"Sending message to '{r_name}' ({r_id}): \"{message}\"")
-        response = self.client.chat_postMessage(channel=r_id, text=message)
+        if ephemeral:
+            self.logger.info(f"Sending ephemeral message to '{r_name}' ({r_id}): \"{message}\"")
+            response = self.client.chat_postEphemeral(channel=r_id, text=message, user="UJHSRPJ15")
+        else:
+            self.logger.info(f"Sending message to '{r_name}' ({r_id}): \"{message}\"")
+            response = self.client.chat_postMessage(channel=r_id, text=message)
         if not response['ok']:
             self.logger.info(f"Failed to send message to '{r_name}' ({r_id}): \"{message}\"")
 

@@ -4,3 +4,4 @@ imageio
 opencv-python
 scapy
 backoff
+pygifsicle
