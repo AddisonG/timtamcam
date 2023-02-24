@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+import os
 import logging
 import backoff
+import urllib.error
 from typing import Union
 
 from slack import WebClient
@@ -34,6 +36,11 @@ class SlackBot():
         if type(channels) is dict:
             channels = channels.get("id")
 
+        if os.path.getsize(file_location) < 10:
+            self.logger.error("File is less than 10 bytes. Not uploading.")
+            self.send_message(self.bot_channel, "GIF was too small. Not uploading.", ephemeral=True)
+            return
+
         try:
             self.logger.debug("Started file upload")
             self.client.files_upload(
@@ -44,6 +51,9 @@ class SlackBot():
                 # filetype="png",
                 # filename="file name when downloaded",
             )
+        except urllib.error.URLError as e:
+            self.logger.error(e.reason)
+            raise
         except Exception as e:
             self.logger.error(e.response.get("error"))
             raise

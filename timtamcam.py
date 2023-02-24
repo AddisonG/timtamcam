@@ -137,7 +137,6 @@ class TimTamCam(SlackBot):
             return
 
         try:
-            self.logger.info("Uploading file to Slack")
             self.send_file(self.bot_channel, "/tmp/timtam-thief.gif",
                 f"Timtam tampering detected! Someone took {round(num_timtams)} Tim Tams!")
         except SlackApiError as api_error:
@@ -205,8 +204,8 @@ class TimTamCam(SlackBot):
                 if previous is not None:
                     hour = datetime.now().hour
                     weekday = datetime.now().weekday()
-                    if hour >= 19 or hour <= 4 or weekday > 5:
-                        # Don't record thefts after 7:59pm, or before 4:59am
+                    if hour >= 18 or hour <= 4 or weekday >= 5:
+                        # Don't record thefts after 5:59pm, or before 4:59am
                         # Don't record thefts on Saturday/Sunday
                         previous = None
                         continue
